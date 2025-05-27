@@ -1,0 +1,52 @@
+{
+  "name": "templatecli",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "start": "react-native start --port=8083",
+    "android:dev": "react-native run-android --mode=DevelopmentDebug --appIdSuffix=dev --port=8083",
+    "android:dev:release": "react-native run-android --mode=DevelopmentRelease --appIdSuffix=dev --port=8083",
+    "android:dev-apk": "cd android && ./gradlew assembleDevelopmentRelease",
+    "android:dev-aab": "cd android && ./gradlew bundleDevelopmentRelease",
+    "android:prod": "react-native run-android --mode=ProductionDebug --port=8083",
+    "android:prod:release": "react-native run-android --mode=ProductionRelease --port=8083",
+    "android:prod-apk": "cd android && ./gradlew assembleProductionRelease",
+    "android:prod-aab": "cd android && ./gradlew bundleProductionRelease",
+    "ios:dev": "react-native run-ios --scheme DEV --mode DevelopmentDebug --port=8083",
+    "ios:dev:release": "react-native run-ios --scheme DEV --mode DevelopmentRelease --port=8083",
+    "ios:prod": "react-native run-ios --scheme PROD --mode ProductionDebug --port=8083",
+    "ios:prod:release": "react-native run-ios --scheme PROD --mode ProductionRelease --port=8083",
+
+    "lint": "eslint .",
+    "test": "jest"
+  },
+  "dependencies": {
+    "react": "18.3.1",
+    "react-native": "0.77.0",
+    "react-native-config": "^1.5.5",
+    "react-native-dotenv": "^3.4.11"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "15.0.1",
+    "@react-native-community/cli-platform-android": "15.0.1",
+    "@react-native-community/cli-platform-ios": "15.0.1",
+    "@react-native/babel-preset": "0.77.0",
+    "@react-native/eslint-config": "0.77.0",
+    "@react-native/metro-config": "0.77.0",
+    "@react-native/typescript-config": "0.77.0",
+    "@types/jest": "^29.5.13",
+    "@types/react": "^18.2.6",
+    "@types/react-test-renderer": "^18.0.0",
+    "eslint": "^8.19.0",
+    "jest": "^29.6.3",
+    "prettier": "2.8.8",
+    "react-test-renderer": "18.3.1",
+    "typescript": "5.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
