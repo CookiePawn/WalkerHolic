@@ -1,4 +1,7 @@
 # WalkerHolic
+> 만보기 어플
+> 하루 만보를 채울 경우 탑 층수 올라가는 기능
+
 
 ## React Native Cli 탬플릿
 > 프로젝트명 변경 가능
