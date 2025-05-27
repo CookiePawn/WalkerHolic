@@ -97,6 +97,10 @@ android {
         /* env - DEV 모드일 경우 Config가 적용 되지 않는 문제는 아래 추가로 패키지 명시 해줘야 해결 됨 */
         setProperty("archivesBaseName", "Walkerholic-v${versionName}-c${versionCode}")
         resValue "string", "build_config_package", "com.walkerholic"
+
+        manifestPlaceholders = [
+            appAuthRedirectScheme: "com.googleusercontent.apps.1061413576389-dldk47c93mmf4psdibjo0jbs52a60tg4.apps.googleusercontent.com"
+        ]
     }
     signingConfigs {
         debug {
