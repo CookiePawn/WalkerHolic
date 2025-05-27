@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { StepCounter } from '@/components';
+import { StepCounter, GoogleFit } from '@/components';
 
 const Home = () => {
     return (
         <View style={styles.container}>
             {/* <StepCounter /> */}
+            <GoogleFit />
         </View>
     );
 };
