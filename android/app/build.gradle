@@ -86,17 +86,17 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.templatecli"
+    namespace "com.walkerholic"
     defaultConfig {
-        applicationId "com.templatecli"
+        applicationId "com.walkerholic"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "0.0.1"
 
         /* env - DEV 모드일 경우 Config가 적용 되지 않는 문제는 아래 추가로 패키지 명시 해줘야 해결 됨 */
-        setProperty("archivesBaseName", "TemplateCli-v${versionName}-c${versionCode}")
-        resValue "string", "build_config_package", "com.templatecli"
+        setProperty("archivesBaseName", "Walkerholic-v${versionName}-c${versionCode}")
+        resValue "string", "build_config_package", "com.walkerholic"
     }
     signingConfigs {
         debug {
@@ -110,10 +110,10 @@ android {
     productFlavors {
         development {
             applicationIdSuffix ".dev"
-            resValue "string", "app_name", "TemplateCli DEV"
+            resValue "string", "app_name", "Walkerholic DEV"
         }
         production {
-            resValue "string", "app_name", "TemplateCli"
+            resValue "string", "app_name", "Walkerholic"
         }
     }
     buildTypes {

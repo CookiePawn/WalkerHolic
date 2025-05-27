@@ -1,4 +1,4 @@
-package com.templatecli
+package com.walkerholic
 
 import android.app.Application
 import com.facebook.react.PackageList
