@@ -6,7 +6,7 @@
 
 # MEMBER
 
-홍유빈 - 기획 
+홍유빈 - 기획/디자인
 [GitHub](https://github.com/binihaus)
   
 안준철 - 개발
@@ -15,8 +15,8 @@
 
 # Project Period
 
-    Main WEB DEV. 2025.05.27 ~
-    [2025.05.27]Google Fitness API 연동
+    Main APP DEV. 2025.05.27 ~
+    Google Fitness API 연동. 2025.05.27
     
 
 
@@ -28,11 +28,10 @@
 
 ## Version
 > ## v0.0.1
-> [2025-04-09]
->
-> Create Main Web
->
-> Create Legal Quiz(법률 퀴즈)
+> [2025-05-27]
+> - Goolge Fitness API 연동
+> - 만보기 기능 구현
+
 
 
 ## React Native Cli 탬플릿
