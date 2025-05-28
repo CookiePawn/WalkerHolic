@@ -1,10 +1,37 @@
 # WalkerHolic
+
 > 만보기 어플
 > 
 > 하루 만보를 채울 경우 탑 층수 올라가는 기능
 
-# Develop
-> 2025.05.27 ~
+# MEMBER
+
+홍유빈 - 기획 
+[GitHub](https://github.com/binihaus)
+  
+안준철 - 개발
+[GitHub](https://github.com/CookiePawn)
+
+
+# Project Period
+
+    Main WEB DEV. 2025/05/27 ~
+    법률 퀴즈(Legal Quiz) DEV. 2025/04/09 ~ 2025/04/10
+
+
+## USING
+> https://github.com/CookiePawn/template-cli.git
+>
+> Google Cloud Console - Google Fitness API
+
+
+## Version
+> ## v0.0.1
+> [2025-04-09]
+>
+> Create Main Web
+>
+> Create Legal Quiz(법률 퀴즈)
 
 
 ## React Native Cli 탬플릿
