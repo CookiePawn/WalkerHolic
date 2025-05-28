@@ -15,8 +15,9 @@
 
 # Project Period
 
-    Main WEB DEV. 2025/05/27 ~
-    법률 퀴즈(Legal Quiz) DEV. 2025/04/09 ~ 2025/04/10
+    Main WEB DEV. 2025.05.27 ~
+    [2025.05.27]Google Fitness API 연동
+    
 
 
 ## USING
