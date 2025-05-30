@@ -22,8 +22,6 @@ public class StepCounterModule extends ReactContextBaseJavaModule implements Sen
     private final ReactApplicationContext reactContext;
     private SensorManager sensorManager;
     private Sensor stepCounter;
-    private float steps = 0;
-    private float lastSteps = 0;
     private static final String TAG = "StepCounterModule";
 
     public StepCounterModule(ReactApplicationContext reactContext) {
@@ -102,22 +100,18 @@ public class StepCounterModule extends ReactContextBaseJavaModule implements Sen
     @ReactMethod
     public void getSteps(Promise promise) {
         WritableMap map = Arguments.createMap();
-        map.putDouble("steps", steps);
-        Log.d(TAG, "Current steps: " + steps);
+        map.putDouble("steps", 0); // This will be updated by onSensorChanged
         promise.resolve(map);
     }
 
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
-            steps = event.values[0];
-            float stepDifference = steps - lastSteps;
-            lastSteps = steps;
-
-            Log.d(TAG, "Step counter updated - Total: " + steps + ", Difference: " + stepDifference);
+            float steps = event.values[0];
+            Log.d(TAG, "Step counter updated: " + steps);
 
             WritableMap params = Arguments.createMap();
-            params.putDouble("steps", stepDifference);
+            params.putDouble("steps", 0); // Difference will be calculated in JS
             params.putDouble("totalSteps", steps);
 
             sendEvent("stepCounterUpdate", params);

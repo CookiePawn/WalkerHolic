@@ -5,8 +5,8 @@ import { StepCounter, GoogleFit } from '@/components';
 const Home = () => {
     return (
         <View style={styles.container}>
-            {/* <StepCounter /> */}
-            <GoogleFit />
+            <StepCounter />
+            {/* <GoogleFit /> */}
         </View>
     );
 };
