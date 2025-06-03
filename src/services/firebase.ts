@@ -1,15 +1,24 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, query, where, setDoc } from 'firebase/firestore';
+import { 
+    FIREBASE_API_KEY,
+    FIREBASE_AUTH_DOMAIN,
+    FIREBASE_PROJECT_ID,
+    FIREBASE_STORAGE_BUCKET,
+    FIREBASE_MESSAGING_SENDER_ID,
+    FIREBASE_APP_ID,
+    FIREBASE_MEASUREMENT_ID 
+} from '@env';
 
 // Firebase 설정
 const firebaseConfig = {
-    apiKey: "AIzaSyAQuSZ1Jiavf54VQXLfFou3FICgl5hHqBQ",
-    authDomain: "walkerhoilc.firebaseapp.com",
-    projectId: "walkerhoilc",
-    storageBucket: "walkerhoilc.firebasestorage.app",
-    messagingSenderId: "134641331408",
-    appId: "1:134641331408:web:37c9caee9c667e77d642d5",
-    measurementId: "G-F93MKVLCCB"
+    apiKey: FIREBASE_API_KEY,
+    authDomain: FIREBASE_AUTH_DOMAIN,
+    projectId: FIREBASE_PROJECT_ID,
+    storageBucket: FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+    appId: FIREBASE_APP_ID,
+    measurementId: FIREBASE_MEASUREMENT_ID
 };
 
 // Firebase 초기화
@@ -20,11 +29,11 @@ export const db = getFirestore(app);
 
 // 데이터 추가 함수
 export const addData = async (collectionName: string, data: any) => {
+    console.log('addData', collectionName, data);
     try {
         const docRef = await addDoc(collection(db, collectionName), data);
         return { id: docRef.id, ...data };
     } catch (error) {
-        console.error("Error adding document: ", error);
         throw error;
     }
 };
@@ -38,7 +47,6 @@ export const getCollectionData = async (collectionName: string) => {
             ...doc.data()
         }));
     } catch (error) {
-        console.error("Error getting documents: ", error);
         throw error;
     }
 };
@@ -53,19 +61,36 @@ export const getDocument = async (collectionName: string, docId: string) => {
         }
         return null;
     } catch (error) {
-        console.error("Error getting document: ", error);
         throw error;
     }
 };
 
-// 문서 업데이트
-export const updateDocument = async (collectionName: string, docId: string, data: any) => {
+// 문서 업데이트 또는 생성
+export const updateDocument = async (collectionName: string, data: any) => {
     try {
+        // userUid와 date로 문서 ID 생성
+        const docId = `${data.userUid}_${data.date}`;
         const docRef = doc(db, collectionName, docId);
-        await updateDoc(docRef, data);
-        return { id: docId, ...data };
+        
+        // 문서가 존재하는지 확인
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            // 문서가 존재하면 걸음 수가 변경된 경우에만 업데이트
+            const existingData = docSnap.data();
+            if (existingData.steps !== data.steps) {
+                await updateDoc(docRef, {
+                    steps: data.steps,
+                    timestamp: data.timestamp
+                });
+            }
+            return { id: docId, ...data };
+        } else {
+            // 새로운 데이터 추가 (지정된 ID로)
+            await setDoc(docRef, data);
+            return { id: docId, ...data };
+        }
     } catch (error) {
-        console.error("Error updating document: ", error);
         throw error;
     }
 };
@@ -77,7 +102,6 @@ export const deleteDocument = async (collectionName: string, docId: string) => {
         await deleteDoc(docRef);
         return true;
     } catch (error) {
-        console.error("Error deleting document: ", error);
         throw error;
     }
 };

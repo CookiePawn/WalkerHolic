@@ -8,3 +8,10 @@ export interface User {
     name: string;
     createdAt: Date;
 }
+
+export interface Step {
+    userUid: string;
+    steps: number;
+    date: string;
+    timestamp: Date;
+}
