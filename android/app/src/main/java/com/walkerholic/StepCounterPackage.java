@@ -10,6 +10,12 @@ import java.util.Collections;
 import java.util.List;
 
 public class StepCounterPackage implements ReactPackage {
+    private StepCounterService stepCounterService;
+
+    public void setStepCounterService(StepCounterService service) {
+        this.stepCounterService = service;
+    }
+
     @Override
     public List<ViewManager> createViewManagers(ReactApplicationContext reactContext) {
         return Collections.emptyList();
@@ -18,7 +24,11 @@ public class StepCounterPackage implements ReactPackage {
     @Override
     public List<NativeModule> createNativeModules(ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();
-        modules.add(new StepCounterModule(reactContext));
+        StepCounterModule module = new StepCounterModule(reactContext);
+        if (stepCounterService != null) {
+            module.setStepCounterService(stepCounterService);
+        }
+        modules.add(module);
         return modules;
     }
 } 

@@ -7,6 +7,8 @@ import {
   Permission,
   check,
   request,
+  checkNotifications,
+  requestNotifications,
 } from 'react-native-permissions';
 
 const ANDROID_PERMISSIONS = [
@@ -36,6 +38,22 @@ export const usePermission = () => {
     }
   };
 
+  const checkAndRequestNotificationPermission = async () => {
+    try {
+      const { status } = await checkNotifications();
+      
+      if (status !== RESULTS.GRANTED) {
+        const { status: requestStatus } = await requestNotifications(['alert', 'sound']);
+        return requestStatus === RESULTS.GRANTED;
+      }
+
+      return true;
+    } catch (error) {
+      if (__DEV__) console.error('Error checking/requesting notification permission:', error);
+      return false;
+    }
+  };
+
   const requestAllPermissions = async () => {
     if (Platform.OS !== 'android') {
       setPermissionsGranted(true);
@@ -43,7 +61,16 @@ export const usePermission = () => {
     }
 
     try {
-      // 각 권한을 순차적으로 확인하고 요청
+      // 알림 권한 확인 및 요청 (Android 13 이상)
+      if (Number(Platform.Version) >= 33) {
+        const notificationGranted = await checkAndRequestNotificationPermission();
+        if (!notificationGranted) {
+          setPermissionsGranted(false);
+          return false;
+        }
+      }
+
+      // 나머지 권한 확인 및 요청
       for (const permission of ANDROID_PERMISSIONS) {
         const granted = await checkAndRequestPermission(permission);
         if (!granted) {
@@ -67,6 +94,16 @@ export const usePermission = () => {
     }
 
     try {
+      // 알림 권한 확인 (Android 13 이상)
+      if (Number(Platform.Version) >= 33) {
+        const { status: notificationStatus } = await checkNotifications();
+        if (notificationStatus !== RESULTS.GRANTED) {
+          setPermissionsGranted(false);
+          return false;
+        }
+      }
+
+      // 나머지 권한 확인
       const results = await checkMultiple(ANDROID_PERMISSIONS);
       
       const allGranted = Object.values(results).every(

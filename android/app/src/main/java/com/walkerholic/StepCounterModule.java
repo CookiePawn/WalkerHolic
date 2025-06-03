@@ -1,40 +1,29 @@
 package com.walkerholic;
 
+import android.content.Intent;
 import android.content.Context;
-import android.content.pm.PackageManager;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
-import android.Manifest;
+import android.os.Build;
 import android.util.Log;
+import android.content.SharedPreferences;
+import java.util.Calendar;
 
-import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import com.facebook.react.bridge.ReactContext;
 
-public class StepCounterModule extends ReactContextBaseJavaModule implements SensorEventListener {
-    private final ReactApplicationContext reactContext;
-    private SensorManager sensorManager;
-    private Sensor stepCounter;
+public class StepCounterModule extends ReactContextBaseJavaModule {
     private static final String TAG = "StepCounterModule";
+    private static final String PREFS_NAME = "StepCounterPrefs";
+    private final ReactApplicationContext reactContext;
+    private StepCounterService stepCounterService;
 
     public StepCounterModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
-        this.sensorManager = (SensorManager) reactContext.getSystemService(Context.SENSOR_SERVICE);
-        this.stepCounter = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-        
-        if (stepCounter != null) {
-            Log.d(TAG, "Step counter sensor found: " + stepCounter.getName());
-        } else {
-            Log.e(TAG, "Step counter sensor not available");
-        }
     }
 
     @Override
@@ -42,84 +31,101 @@ public class StepCounterModule extends ReactContextBaseJavaModule implements Sen
         return "StepCounter";
     }
 
-    private boolean checkPermissions() {
-        return reactContext.checkSelfPermission(Manifest.permission.BODY_SENSORS) == PackageManager.PERMISSION_GRANTED &&
-               reactContext.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void sendEvent(String eventName, WritableMap params) {
-        ReactContext reactContext = getReactApplicationContext();
-        if (reactContext != null && reactContext.hasActiveReactInstance()) {
-            reactContext
-                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
-                .emit(eventName, params);
-        }
-    }
-
+    // Required for event emitter
     @ReactMethod
     public void addListener(String eventName) {
-        // Required for RN built in Event Emitter
+        // Keep: Required for RN built in Event Emitter
     }
 
     @ReactMethod
     public void removeListeners(Integer count) {
-        // Required for RN built in Event Emitter
+        // Keep: Required for RN built in Event Emitter
     }
 
     @ReactMethod
     public void startStepCounter(Promise promise) {
-        if (stepCounter == null) {
-            Log.e(TAG, "Step counter sensor not available");
-            promise.reject("ERROR", "Step counter sensor not available");
-            return;
-        }
-
-        if (!checkPermissions()) {
-            Log.e(TAG, "Required permissions not granted");
-            promise.reject("ERROR", "Required permissions not granted");
-            return;
-        }
-
-        boolean registered = sensorManager.registerListener(this, stepCounter, SensorManager.SENSOR_DELAY_NORMAL);
-        if (registered) {
-            Log.d(TAG, "Step counter sensor registered successfully");
-            promise.resolve(null);
-        } else {
-            Log.e(TAG, "Failed to register step counter sensor");
-            promise.reject("ERROR", "Failed to register step counter sensor");
+        try {
+            Context context = reactContext.getApplicationContext();
+            Intent serviceIntent = new Intent(context, StepCounterService.class);
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent);
+            } else {
+                context.startService(serviceIntent);
+            }
+            
+            promise.resolve(true);
+        } catch (Exception e) {
+            Log.e(TAG, "Error starting step counter service", e);
+            promise.reject("ERROR", "Failed to start step counter service: " + e.getMessage());
         }
     }
 
     @ReactMethod
     public void stopStepCounter(Promise promise) {
-        sensorManager.unregisterListener(this);
-        Log.d(TAG, "Step counter sensor unregistered");
-        promise.resolve(null);
-    }
-
-    @ReactMethod
-    public void getSteps(Promise promise) {
-        WritableMap map = Arguments.createMap();
-        map.putDouble("steps", 0); // This will be updated by onSensorChanged
-        promise.resolve(map);
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
-            float steps = event.values[0];
-            Log.d(TAG, "Step counter updated: " + steps);
-
-            WritableMap params = Arguments.createMap();
-            params.putDouble("steps", 0); // Difference will be calculated in JS
-            params.putDouble("totalSteps", steps);
-
-            sendEvent("stepCounterUpdate", params);
+        try {
+            Context context = reactContext.getApplicationContext();
+            Intent serviceIntent = new Intent(context, StepCounterService.class);
+            context.stopService(serviceIntent);
+            promise.resolve(true);
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping step counter service", e);
+            promise.reject("ERROR", "Failed to stop step counter service: " + e.getMessage());
         }
     }
 
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        Log.d(TAG, "Sensor accuracy changed: " + accuracy);
+    @ReactMethod
+    public void getTodaySteps(Promise promise) {
+        try {
+            SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            String today = getCurrentDate();
+            
+            float lastSteps = prefs.getFloat(today + "_lastSteps", 0);
+            float totalSteps = prefs.getFloat(today + "_totalSteps", 0);
+            float todaySteps = totalSteps - lastSteps;
+            
+            if (todaySteps < 0) todaySteps = 0;
+            
+            WritableMap result = Arguments.createMap();
+            result.putDouble("steps", todaySteps);
+            result.putString("date", today);
+            
+            promise.resolve(result);
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting today's steps", e);
+            promise.reject("ERROR", "Failed to get today's steps: " + e.getMessage());
+        }
+    }
+
+    @ReactMethod
+    public void getDailySteps(String date, Promise promise) {
+        try {
+            SharedPreferences prefs = reactContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            float steps = prefs.getFloat(date + "_dailySteps", 0);
+            
+            WritableMap result = Arguments.createMap();
+            result.putDouble("steps", steps);
+            result.putString("date", date);
+            
+            promise.resolve(result);
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting daily steps", e);
+            promise.reject("ERROR", "Failed to get daily steps: " + e.getMessage());
+        }
+    }
+
+    private String getCurrentDate() {
+        Calendar calendar = Calendar.getInstance();
+        return String.format("%d-%02d-%02d",
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH) + 1,
+            calendar.get(Calendar.DAY_OF_MONTH));
+    }
+
+    public void setStepCounterService(StepCounterService service) {
+        this.stepCounterService = service;
+        if (service != null) {
+            service.setReactContext(reactContext);
+        }
     }
 } 

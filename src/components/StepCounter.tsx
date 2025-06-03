@@ -1,20 +1,17 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, NativeEventEmitter, NativeModules, Platform, PermissionsAndroid, ScrollView, AppState } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, NativeEventEmitter, NativeModules, Platform, PermissionsAndroid, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEY } from '../constants/storage-key';
 import { Step } from '@/models';
 
 const { StepCounter } = NativeModules;
-const eventEmitter = new NativeEventEmitter(StepCounter);
+const eventEmitter = new NativeEventEmitter();
 
 const StepCounterComponent = () => {
   const [steps, setSteps] = useState<number>(0);
   const [totalSteps, setTotalSteps] = useState<number>(0);
   const [currentDate, setCurrentDate] = useState<string>('');
   const [stepHistory, setStepHistory] = useState<Step[]>([]);
-  const lastStepCount = useRef<number>(0);
-  const isFirstUpdate = useRef<boolean>(true);
-  const appState = useRef(AppState.currentState);
 
   const getCurrentDate = () => {
     const now = new Date();
@@ -26,14 +23,6 @@ const StepCounterComponent = () => {
       const data = await AsyncStorage.getItem(STORAGE_KEY.STEP_COUNTER);
       if (data) {
         const stepData: Step[] = JSON.parse(data);
-        const today = getCurrentDate();
-        const todayData = stepData.find(item => item.date === today);
-        
-        if (todayData) {
-          setTotalSteps(todayData.count);
-        } else {
-          setTotalSteps(0);
-        }
         setStepHistory(stepData);
       }
     } catch (error) {
@@ -41,17 +30,16 @@ const StepCounterComponent = () => {
     }
   };
 
-  const saveStepData = async (newSteps: number) => {
+  const saveStepData = async (newSteps: number, date: string) => {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEY.STEP_COUNTER);
       const stepData: Step[] = data ? JSON.parse(data) : [];
-      const today = getCurrentDate();
       
-      const todayIndex = stepData.findIndex(item => item.date === today);
+      const todayIndex = stepData.findIndex(item => item.date === date);
       if (todayIndex !== -1) {
         stepData[todayIndex].count = newSteps;
       } else {
-        stepData.push({ date: today, count: newSteps });
+        stepData.push({ date, count: newSteps });
       }
 
       await AsyncStorage.setItem(STORAGE_KEY.STEP_COUNTER, JSON.stringify(stepData));
@@ -59,38 +47,6 @@ const StepCounterComponent = () => {
     } catch (error) {
       console.error('Error saving step data:', error);
     }
-  };
-
-  const checkAndResetIfNewDay = async () => {
-    const today = getCurrentDate();
-    if (currentDate && currentDate !== today) {
-      console.log('New day detected, resetting step counter');
-      
-      try {
-        // 현재 저장된 데이터 가져오기
-        const data = await AsyncStorage.getItem(STORAGE_KEY.STEP_COUNTER);
-        const stepData: Step[] = data ? JSON.parse(data) : [];
-        
-        // 새로운 날짜의 데이터가 이미 있는지 확인
-        const todayDataExists = stepData.some(item => item.date === today);
-        
-        // 새로운 날짜의 데이터가 없다면 추가
-        if (!todayDataExists) {
-          stepData.push({ date: today, count: 0 });
-          await AsyncStorage.setItem(STORAGE_KEY.STEP_COUNTER, JSON.stringify(stepData));
-          setStepHistory(stepData);
-          console.log('New day record added to AsyncStorage');
-        }
-        
-        // 상태 초기화
-        setTotalSteps(0);
-        setSteps(0);
-        isFirstUpdate.current = true;
-      } catch (error) {
-        console.error('Error handling new day:', error);
-      }
-    }
-    setCurrentDate(today);
   };
 
   const requestPermissions = async () => {
@@ -116,7 +72,6 @@ const StepCounterComponent = () => {
 
   useEffect(() => {
     let subscription: any;
-    let dateCheckInterval: NodeJS.Timeout;
 
     const setupStepCounter = async () => {
       try {
@@ -126,11 +81,14 @@ const StepCounterComponent = () => {
           return;
         }
 
-        // Initialize current date
-        setCurrentDate(getCurrentDate());
-        
         // Load saved step data
         await loadStepData();
+
+        // Get initial steps
+        const todaySteps = await StepCounter.getTodaySteps();
+        setSteps(todaySteps.steps);
+        setTotalSteps(todaySteps.steps);
+        setCurrentDate(todaySteps.date);
 
         // Start step counter
         await StepCounter.startStepCounter();
@@ -138,37 +96,12 @@ const StepCounterComponent = () => {
 
         // Listen for step updates
         subscription = eventEmitter.addListener('stepCounterUpdate', (event) => {
-          const currentSteps = event.totalSteps;
-          
-          if (isFirstUpdate.current) {
-            lastStepCount.current = currentSteps;
-            isFirstUpdate.current = false;
-            console.log('Initial step count:', lastStepCount.current);
-          } else {
-            const stepDifference = currentSteps - lastStepCount.current;
-            if (stepDifference > 0) {
-              const newTotalSteps = totalSteps + stepDifference;
-              setSteps(stepDifference);
-              setTotalSteps(newTotalSteps);
-              saveStepData(newTotalSteps);
-              lastStepCount.current = currentSteps;
-            }
-          }
+          console.log('Step counter update received:', event);
+          setSteps(event.todaySteps);
+          setTotalSteps(event.todaySteps);
+          setCurrentDate(event.date);
+          saveStepData(event.todaySteps, event.date);
         });
-
-        // Check for date change every second
-        dateCheckInterval = setInterval(() => {
-          const now = new Date();
-          const currentHour = now.getHours();
-          const currentMinute = now.getMinutes();
-          const currentSecond = now.getSeconds();
-          
-          // 자정(00:00:00)을 체크
-          if (currentHour === 0 && currentMinute === 0 && currentSecond === 0) {
-            console.log('Midnight detected, resetting step counter');
-            checkAndResetIfNewDay();
-          }
-        }, 1000); // 1초마다 체크
 
       } catch (error) {
         console.error('Error setting up step counter:', error);
@@ -182,14 +115,11 @@ const StepCounterComponent = () => {
       if (subscription) {
         subscription.remove();
       }
-      if (dateCheckInterval) {
-        clearInterval(dateCheckInterval);
-      }
       StepCounter.stopStepCounter().catch((error: Error) => {
         console.error('Error stopping step counter:', error);
       });
     };
-  }, [totalSteps]);
+  }, []);
 
   const renderStepHistory = () => {
     return stepHistory
