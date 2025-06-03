@@ -1,202 +1,140 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, NativeEventEmitter, NativeModules, Platform, PermissionsAndroid, ScrollView } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEY } from '../constants/storage-key';
-import { Step } from '@/models';
+import { View, Text, StyleSheet, NativeModules, NativeEventEmitter, AppState } from 'react-native';
+import { addData } from '@/services';
+import { Collection } from '@/models';
 
 const { StepCounter } = NativeModules;
-const eventEmitter = new NativeEventEmitter();
 
-const StepCounterComponent = () => {
-  const [steps, setSteps] = useState<number>(0);
-  const [totalSteps, setTotalSteps] = useState<number>(0);
-  const [currentDate, setCurrentDate] = useState<string>('');
-  const [stepHistory, setStepHistory] = useState<Step[]>([]);
+interface StepData {
+  steps: number;
+  date: string;
+}
 
-  const getCurrentDate = () => {
-    const now = new Date();
-    return now.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' });
-  };
-
-  const loadStepData = async () => {
-    try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY.STEP_COUNTER);
-      if (data) {
-        const stepData: Step[] = JSON.parse(data);
-        setStepHistory(stepData);
-      }
-    } catch (error) {
-      console.error('Error loading step data:', error);
-    }
-  };
-
-  const saveStepData = async (newSteps: number, date: string) => {
-    try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY.STEP_COUNTER);
-      const stepData: Step[] = data ? JSON.parse(data) : [];
-      
-      const todayIndex = stepData.findIndex(item => item.date === date);
-      if (todayIndex !== -1) {
-        stepData[todayIndex].count = newSteps;
-      } else {
-        stepData.push({ date, count: newSteps });
-      }
-
-      await AsyncStorage.setItem(STORAGE_KEY.STEP_COUNTER, JSON.stringify(stepData));
-      setStepHistory(stepData);
-    } catch (error) {
-      console.error('Error saving step data:', error);
-    }
-  };
-
-  const requestPermissions = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.BODY_SENSORS,
-          PermissionsAndroid.PERMISSIONS.ACTIVITY_RECOGNITION,
-        ]);
-        
-        const allGranted = Object.values(granted).every(
-          (permission) => permission === PermissionsAndroid.RESULTS.GRANTED
-        );
-        
-        return allGranted;
-      } catch (err) {
-        console.error('Error requesting permissions:', err);
-        return false;
-      }
-    }
-    return true;
-  };
+const StepCounterComponent: React.FC = () => {
+  const [todaySteps, setTodaySteps] = useState<number>(0);
+  const [isTracking, setIsTracking] = useState<boolean>(false);
+  const user = { uid: '1234567890' };
 
   useEffect(() => {
-    let subscription: any;
+    // 초기 걸음 수 가져오기
+    getInitialSteps();
+    
+    // 걸음 수 추적 시작
+    startStepTracking();
 
-    const setupStepCounter = async () => {
-      try {
-        const hasPermissions = await requestPermissions();
-        if (!hasPermissions) {
-          console.error('Required permissions not granted');
-          return;
-        }
-
-        // Load saved step data
-        await loadStepData();
-
-        // Get initial steps
-        const todaySteps = await StepCounter.getTodaySteps();
-        setSteps(todaySteps.steps);
-        setTotalSteps(todaySteps.steps);
-        setCurrentDate(todaySteps.date);
-
-        // Start step counter
-        await StepCounter.startStepCounter();
-        console.log('Step counter started');
-
-        // Listen for step updates
-        subscription = eventEmitter.addListener('stepCounterUpdate', (event) => {
-          console.log('Step counter update received:', event);
-          setSteps(event.todaySteps);
-          setTotalSteps(event.todaySteps);
-          setCurrentDate(event.date);
-          saveStepData(event.todaySteps, event.date);
-        });
-
-      } catch (error) {
-        console.error('Error setting up step counter:', error);
+    // AppState 리스너 설정
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (nextAppState === 'active') {
+        getInitialSteps(); // 앱이 포그라운드로 돌아올 때 걸음 수 업데이트
       }
-    };
-
-    setupStepCounter();
-
-    // Cleanup
+    });
+    
+    // 컴포넌트 언마운트 시 정리
     return () => {
-      if (subscription) {
-        subscription.remove();
-      }
-      StepCounter.stopStepCounter().catch((error: Error) => {
-        console.error('Error stopping step counter:', error);
-      });
+      stopStepTracking();
+      subscription.remove();
     };
   }, []);
 
-  const renderStepHistory = () => {
-    return stepHistory
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .map((step, index) => (
-        <View key={index} style={styles.historyItem}>
-          <Text style={styles.historyDate}>{step.date}</Text>
-          <Text style={styles.historySteps}>{step.count.toLocaleString()} 걸음</Text>
-        </View>
-      ));
+  const getInitialSteps = async () => {
+    try {
+      const result = await StepCounter.getTodaySteps();
+      console.log('Initial steps:', JSON.stringify(result, null, 2));
+      setTodaySteps(result.steps);
+    } catch (error) {
+      console.error('초기 걸음 수 가져오기 실패:', error);
+    }
+  };
+
+  const startStepTracking = async () => {
+    try {
+      await StepCounter.startStepCounter();
+      setIsTracking(true);
+      
+      // 걸음 수 업데이트를 위한 이벤트 리스너 설정
+      const eventEmitter = new NativeEventEmitter(StepCounter);
+      const subscription = eventEmitter.addListener('stepCounterUpdate', (data: StepData) => {
+        console.log('Step update:', JSON.stringify(data, null, 2));
+        setTodaySteps(data.steps);
+        // Firestore에 데이터 저장
+        saveStepsToFirestore(data);
+      });
+
+      // 컴포넌트 언마운트 시 이벤트 리스너 제거
+      return () => {
+        subscription.remove();
+      };
+    } catch (error) {
+      console.error('걸음 수 추적 시작 실패:', error);
+    }
+  };
+
+  const stopStepTracking = async () => {
+    try {
+      await StepCounter.stopStepCounter();
+      setIsTracking(false);
+    } catch (error) {
+      console.error('걸음 수 추적 중지 실패:', error);
+    }
+  };
+
+  const saveStepsToFirestore = async (data: StepData) => {
+    try {
+      await addData(Collection.Step, {
+        userUid: user?.uid,
+        steps: data.steps,
+        date: data.date,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Firestore 저장 실패:', error);
+    }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.currentSteps}>
-        <Text style={styles.title}>오늘의 만보</Text>
-        <Text style={styles.steps}>{totalSteps.toLocaleString()} 걸음</Text>
-      </View>
-      
-      <View style={styles.historyContainer}>
-        <Text style={styles.historyTitle}>걸음 수 기록</Text>
-        <ScrollView style={styles.historyList}>
-          {renderStepHistory()}
-        </ScrollView>
-      </View>
+      <Text style={styles.title}>오늘의 걸음 수</Text>
+      <Text style={styles.steps}>{todaySteps.toLocaleString()} 걸음</Text>
+      <Text style={styles.status}>
+        {isTracking ? '걸음 수 추적 중...' : '걸음 수 추적 중지됨'}
+      </Text>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
     padding: 20,
     backgroundColor: '#fff',
     borderRadius: 10,
-  },
-  currentSteps: {
-    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    margin: 10,
   },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 10,
+    color: '#333',
   },
   steps: {
-    fontSize: 24,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#007AFF',
+    color: '#2196F3',
+    textAlign: 'center',
+    marginVertical: 20,
   },
-  historyContainer: {
-    marginTop: 20,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
-  historyList: {
-    maxHeight: 300,
-  },
-  historyItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  historyDate: {
+  status: {
     fontSize: 14,
     color: '#666',
-  },
-  historySteps: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#007AFF',
+    textAlign: 'center',
   },
 });
 
-export default StepCounterComponent; 
+export default StepCounterComponent;
