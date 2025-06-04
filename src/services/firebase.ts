@@ -76,9 +76,9 @@ export const updateDocument = async (collectionName: string, data: any) => {
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-            // 문서가 존재하면 걸음 수가 변경된 경우에만 업데이트
+            // 문서가 존재하면 걸음 수가 더 큰 경우에만 업데이트
             const existingData = docSnap.data();
-            if (existingData.steps !== data.steps) {
+            if (data.steps > existingData.steps) {
                 await updateDoc(docRef, {
                     steps: data.steps,
                     timestamp: data.timestamp
